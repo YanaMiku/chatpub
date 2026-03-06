@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serverless Public Chat</title>
-    <!-- Menggunakan Gun.js dari CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <title>Serverless Public Chat (Yjs)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -17,11 +15,7 @@
             --border: #333333;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -62,14 +56,11 @@
             align-items: center;
         }
 
-        .chat-header h2 {
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
+        .chat-header h2 { font-size: 1.2rem; font-weight: 600; }
 
         .status {
             font-size: 0.8rem;
-            color: #03dac6;
+            color: #ffb300; /* Default connecting color */
             display: flex;
             align-items: center;
             gap: 5px;
@@ -78,10 +69,12 @@
         .status-dot {
             width: 8px;
             height: 8px;
-            background-color: #03dac6;
+            background-color: currentColor;
             border-radius: 50%;
-            animation: pulse 2s infinite;
         }
+        
+        .status.connected { color: #03dac6; }
+        .status.connected .status-dot { animation: pulse 2s infinite; }
 
         @keyframes pulse {
             0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(3, 218, 198, 0.7); }
@@ -141,10 +134,7 @@
             gap: 10px;
         }
 
-        .input-row {
-            display: flex;
-            gap: 10px;
-        }
+        .input-row { display: flex; gap: 10px; }
 
         input {
             background-color: #2c2c2c;
@@ -157,18 +147,9 @@
             transition: border-color 0.2s;
         }
 
-        input:focus {
-            border-color: var(--accent);
-        }
-
-        #nameInput {
-            width: 30%;
-            min-width: 100px;
-        }
-
-        #msgInput {
-            flex: 1;
-        }
+        input:focus { border-color: var(--accent); }
+        #nameInput { width: 30%; min-width: 100px; }
+        #msgInput { flex: 1; }
 
         button {
             background-color: var(--accent);
@@ -182,24 +163,12 @@
             transition: background-color 0.2s;
         }
 
-        button:hover {
-            background-color: var(--accent-hover);
-        }
+        button:hover { background-color: var(--accent-hover); }
 
-        /* Scrollbar Styling */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--chat-bg);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #555;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #777;
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--chat-bg); }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
     </style>
 </head>
 <body>
@@ -207,13 +176,13 @@
     <div class="chat-container">
         <div class="chat-header">
             <h2>P2P Global Chat 🌐</h2>
-            <div class="status">
-                <div class="status-dot"></div> P2P Connected
+            <div class="status" id="statusIndicator">
+                <div class="status-dot"></div> <span id="statusText">Connecting...</span>
             </div>
         </div>
         
         <div class="messages" id="messagesDiv">
-            <!-- Pesan akan muncul di sini -->
+            <!-- Pesan akan dirender di sini -->
         </div>
 
         <div class="input-area">
@@ -225,48 +194,64 @@
         </div>
     </div>
 
-    <script>
-        // 1. Inisialisasi Gun.js dengan Relay Publik
-        // Menggunakan relay komunitas yang stabil untuk membantu sinkronisasi antar browser
-        const gun = Gun({
-            peers: [
-                'https://gun-manhattan.herokuapp.com/gun',
-                'https://peer.wallie.io/gun'
-            ]
-        });
+    <!-- Menggunakan ES Modules untuk memuat Yjs -->
+    <script type="module">
+        // Import Yjs dan Provider dari CDN esm.sh
+        import * as Y from 'https://esm.sh/yjs@13.6.14';
+        import { WebsocketProvider } from 'https://esm.sh/y-websocket@2.0.4';
+        import { WebrtcProvider } from 'https://esm.sh/y-webrtc@13.0.2';
 
-        // 2. Buat referensi ke "node" database khusus untuk aplikasi kita
-        // Ganti string ini jika ingin membuat "room" atau channel yang berbeda
-        const chatNode = gun.get('github-pages-serverless-chat-2026-v1');
+        // 1. Inisialisasi Dokumen Bersama (Shared Document)
+        const ydoc = new Y.Doc();
+        
+        // Nama ruangan (channel). Ganti string ini untuk membuat room terpisah.
+        const roomName = 'github-pages-chat-room-2026-v2';
 
-        // Elemen DOM
+        // 2. Hubungkan ke Relay Publik menggunakan WebSocket (Prioritas Utama - Sangat Cepat)
+        const wsProvider = new WebsocketProvider('wss://demos.yjs.dev/ws', roomName, ydoc);
+        
+        // 3. Fallback WebRTC: Jika WebSocket gagal, ini akan menghubungkan browser secara P2P murni
+        const webrtcProvider = new WebrtcProvider(roomName, ydoc);
+
+        // 4. Buat struktur data Array yang akan disinkronisasi
+        const yMessages = ydoc.getArray('chat-messages');
+
+        // Referensi elemen DOM
         const messagesDiv = document.getElementById('messagesDiv');
         const nameInput = document.getElementById('nameInput');
         const msgInput = document.getElementById('msgInput');
         const sendBtn = document.getElementById('sendBtn');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
 
-        // State lokal untuk menyimpan pesan (membantu sorting dan pruning)
-        let messages = {};
+        // Update indikator koneksi
+        wsProvider.on('status', event => {
+            if (event.status === 'connected') {
+                statusIndicator.classList.add('connected');
+                statusText.innerText = 'Connected (Relay + P2P)';
+            } else {
+                statusIndicator.classList.remove('connected');
+                statusText.innerText = 'Connecting...';
+            }
+        });
 
-        // 3. Fungsi untuk merender pesan ke layar
+        // Fungsi Render Pesan
         function renderMessages() {
             messagesDiv.innerHTML = '';
             
-            // Konversi object ke array, urutkan berdasarkan waktu, batasi 200 pesan terakhir
-            const sortedMessages = Object.values(messages)
-                .sort((a, b) => a.timestamp - b.timestamp)
-                .slice(-200);
+            // Ambil array dari Yjs, batasi hanya 200 pesan terakhir agar DOM tidak berat
+            const messages = yMessages.toArray().slice(-200);
 
-            sortedMessages.forEach(msg => {
+            messages.forEach(msg => {
                 const date = new Date(msg.timestamp);
                 const timeString = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
                 
                 const msgEl = document.createElement('div');
                 msgEl.className = 'message-item';
                 
-                // Sanitasi sederhana untuk mencegah XSS dasar
-                const safeName = msg.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                const safeText = msg.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                // Sanitasi sederhana mencegah XSS
+                const safeName = (msg.name || 'Anon').replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                const safeText = (msg.text || '').replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
                 msgEl.innerHTML = `
                     <div class="message-meta">[${timeString}]</div>
@@ -282,54 +267,46 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        // 4. Listen data secara Real-Time dari Gun.js
-        chatNode.map().on((data, id) => {
-            if (data && data.text) {
-                // Gun.js bisa mengirim data yang sama berkali-kali, 
-                // kita cek apakah pesan sudah ada di state lokal kita
-                if (!messages[id]) {
-                    messages[id] = {
-                        name: data.name,
-                        text: data.text,
-                        timestamp: data.timestamp
-                    };
-                    renderMessages();
-                }
-            }
+        // 5. Listen perubahan data. Setiap ada yang kirim pesan, ini akan terpicu otomatis
+        yMessages.observe(() => {
+            renderMessages();
         });
 
-        // 5. Fungsi untuk Mengirim Pesan
+        // 6. Fungsi Kirim Pesan
         function sendMessage() {
             const text = msgInput.value.trim();
             if (!text) return;
 
             const name = nameInput.value.trim() || 'Anon';
             
-            // Simpan ke Gun.js
-            // Gun.js akan secara otomatis menyebarkan (broadcast) ini ke peers lain
-            chatNode.set({
+            // Push ke shared array. Yjs akan otomatis broadcast ke semua user.
+            yMessages.push([{
+                id: crypto.randomUUID(), // ID unik
                 name: name,
                 text: text,
-                timestamp: Gun.state() // Menggunakan sistem waktu desentralisasi Gun
-            });
+                timestamp: Date.now()
+            }]);
 
             msgInput.value = '';
             msgInput.focus();
         }
 
-        // Event Listeners
+        // Event Listeners UI
         sendBtn.addEventListener('click', sendMessage);
         msgInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
 
-        // Load saved name from localStorage if exists
+        // Simpan/Muat nama dari localStorage
         const savedName = localStorage.getItem('chatName');
         if (savedName) nameInput.value = savedName;
         
         nameInput.addEventListener('change', (e) => {
             localStorage.setItem('chatName', e.target.value);
         });
+
+        // Initial render jika sudah ada pesan di memori relay
+        renderMessages();
 
     </script>
 </body>
