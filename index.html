@@ -1,46 +1,584 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Chat Public Pure GitHub</title>
-  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gun/lib/webrtc.js"></script> <!-- optional -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ Public Chat · Realtime (Supabase)</title>
+  <!-- Font & simple icons via CDN (optional) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    #messages { height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      background: #121212;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .chat-container {
+      max-width: 750px;
+      width: 100%;
+      height: 90vh;
+      background: #1e1f2b;
+      border-radius: 32px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px #2e2f3e inset;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* header */
+    .chat-header {
+      padding: 20px 24px;
+      background: #262837;
+      border-bottom: 1px solid #353746;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .chat-header h2 {
+      color: #eaeef2;
+      font-weight: 500;
+      font-size: 1.5rem;
+      letter-spacing: -0.2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-header h2 i {
+      color: #3ecf8e;
+      font-size: 1.8rem;
+    }
+
+    .nickname-area {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #2f3246;
+      padding: 6px 12px 6px 18px;
+      border-radius: 60px;
+      border: 1px solid #404458;
+    }
+
+    .nickname-area i {
+      color: #9aa0b8;
+      font-size: 1rem;
+    }
+
+    #nicknameInput {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 1rem;
+      padding: 8px 0;
+      width: 140px;
+      outline: none;
+    }
+
+    #nicknameInput::placeholder {
+      color: #6b7089;
+      font-weight: 300;
+    }
+
+    #saveNickname {
+      background: #3b3f5c;
+      border: none;
+      color: white;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 1rem;
+    }
+
+    #saveNickname:hover {
+      background: #4f5480;
+      transform: scale(1.05);
+    }
+
+    /* messages area */
+    .messages-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      background: #181a26;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scroll-behavior: smooth;
+    }
+
+    /* global message styling */
+    .message-row {
+      display: flex;
+      width: 100%;
+    }
+
+    .message-row.own {
+      justify-content: flex-end;
+    }
+
+    .message-bubble {
+      max-width: 80%;
+      background: #262a3a;
+      padding: 12px 18px;
+      border-radius: 24px 24px 24px 6px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+      border: 1px solid #373b4e;
+      word-wrap: break-word;
+    }
+
+    .own .message-bubble {
+      background: #2b4b5c;
+      border-color: #358096;
+      border-radius: 24px 24px 6px 24px;
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+    }
+
+    .nickname {
+      font-weight: 600;
+      color: #b5c9ff;
+    }
+
+    .own .nickname {
+      color: #b3ecff;
+    }
+
+    .timestamp {
+      color: #8b91ad;
+      font-size: 0.7rem;
+      letter-spacing: 0.2px;
+    }
+
+    .message-text {
+      color: #f0f3fa;
+      font-size: 1rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+    }
+
+    .own .message-text {
+      color: white;
+    }
+
+    /* system warnings */
+    .system-warning {
+      background: #3d2b2b;
+      border-left: 5px solid #f15e5e;
+      color: #ffc6c6;
+      padding: 12px 18px;
+      border-radius: 16px;
+      margin: 8px 0;
+      font-size: 0.9rem;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* input area */
+    .input-area {
+      background: #262837;
+      padding: 16px 24px 20px 24px;
+      border-top: 1px solid #353746;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .input-wrapper {
+      flex: 1;
+      background: #1f212f;
+      border-radius: 40px;
+      padding: 4px 8px 4px 20px;
+      border: 1px solid #3e4157;
+      display: flex;
+      align-items: center;
+    }
+
+    #messageInput {
+      width: 100%;
+      background: transparent;
+      border: none;
+      padding: 14px 0;
+      color: white;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    #messageInput::placeholder {
+      color: #6b7089;
+    }
+
+    #sendBtn {
+      background: #3ecf8e;
+      border: none;
+      color: #0b1e1c;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      font-size: 1.4rem;
+      cursor: pointer;
+      transition: 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px #1f584b;
+    }
+
+    #sendBtn:hover {
+      background: #6bffbe;
+      transform: scale(1.07);
+    }
+
+    #sendBtn:disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    .rate-limit-tip {
+      color: #8d94b0;
+      font-size: 0.75rem;
+      margin-left: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-note {
+      font-size: 0.7rem;
+      color: #5c6180;
+      text-align: center;
+      padding: 6px 0 2px;
+    }
   </style>
 </head>
 <body>
-  <h1>Chat Public (Gun.js Decentralized)</h1>
-  <div id="messages"></div>
-  <input id="nick" placeholder="Nama kamu" value="Anon">
-  <input id="text" placeholder="Ketik pesan...">
-  <button onclick="send()">Kirim</button>
+  <div class="chat-container">
+    <div class="chat-header">
+      <h2><i class="fas fa-comment-dots"></i> pub-chat ⚡</h2>
+      <div class="nickname-area">
+        <i class="fas fa-user-pen"></i>
+        <input type="text" id="nicknameInput" placeholder="nickname" maxlength="25" autocomplete="off">
+        <button id="saveNickname" title="simpan nickname"><i class="fas fa-check"></i></button>
+      </div>
+    </div>
 
-  <script>
-    const gun = Gun({
-      peers: ['https://gun-manhattan.herokuapp.com/gun'] // relay publik gratis
+    <!-- Daftar pesan -->
+    <div id="messageList" class="messages-panel"></div>
+
+    <!-- Input baru -->
+    <div class="input-area">
+      <div class="input-wrapper">
+        <input type="text" id="messageInput" placeholder="Ketik pesan..." autocomplete="off">
+      </div>
+      <button id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+      <div class="rate-limit-tip"><i class="far fa-clock"></i> <span id="rateCounter">30</span> pesan/menit</div>
+    </div>
+    <div class="footer-note">💬 realtime via supabase · pesan bubble sendiri berbeda</div>
+  </div>
+
+  <!-- Supabase JS client v2 (CDN) -->
+  <script type="module">
+    // ==================== SUPABASE SETUP (ganti dengan credentialsmu) ====================
+    // 1. Buat project gratis di https://supabase.com
+    // 2. Buat table 'messages' dengan:
+    //    - id uuid DEFAULT gen_random_uuid() PRIMARY KEY
+    //    - nickname text NOT NULL
+    //    - text text NOT NULL
+    //    - created_at timestamptz DEFAULT now()
+    // 3. Aktifkan Realtime: Database → Replication → enable replication untuk table 'messages'
+    // 4. SQL untuk RLS (boleh insert anonim, semua read):
+    //    CREATE POLICY "public read" ON messages FOR SELECT USING (true);
+    //    CREATE POLICY "insert anonim" ON messages FOR INSERT WITH CHECK (true);
+    // 5. Ambil URL project & anon key dari Settings → API
+    // ======================================================================================
+    const SUPABASE_URL = "https://your-project-ref.supabase.co";       // <-- ganti
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ..."; // <-- ganti
+
+    // fallback warning jika lupa ganti
+    if (SUPABASE_URL.includes('your-project-ref')) {
+      alert('⚠️ PERHATIAN: Isi SUPABASE_URL dan anon key terlebih dahulu!');
+    }
+
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+
+    // inisialisasi supabase
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      realtime: { params: { eventsPerSecond: 10 } }
     });
-    const chat = gun.get('public-chat-room');
 
-    chat.map().on((data, key) => {
-      const div = document.createElement('div');
-      div.textContent = `${data.nick}: ${data.text}`;
-      document.getElementById('messages').appendChild(div);
-      div.scrollIntoView();
-    });
+    // ----- DOM elements -----
+    const messageListEl = document.getElementById('messageList');
+    const nicknameInput = document.getElementById('nicknameInput');
+    const saveNickBtn = document.getElementById('saveNickname');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const rateCounterSpan = document.getElementById('rateCounter');
 
-    function send() {
-      const nick = document.getElementById('nick').value || 'Anon';
-      const text = document.getElementById('text').value;
-      if (text) {
-        chat.set({ nick, text, time: Date.now() });
-        document.getElementById('text').value = '';
+    // ----- state & constants -----
+    let currentNickname = localStorage.getItem('chat_nickname') || 'anon';
+    nicknameInput.value = currentNickname;
+
+    // anti spam sederhana (client side: 30 pesan per menit)
+    const RATE_LIMIT = 30;                // max 30 pesan per menit
+    const RATE_WINDOW = 60 * 1000;        // 1 menit
+    let messageTimestamps = [];
+
+    // inisialisasi counter
+    updateRateCounter();
+
+    // ----- helper: update rate limit UI -----
+    function updateRateCounter() {
+      const now = Date.now();
+      // hapus timestamp di luar window
+      messageTimestamps = messageTimestamps.filter(ts => now - ts < RATE_WINDOW);
+      const used = messageTimestamps.length;
+      const remaining = Math.max(0, RATE_LIMIT - used);
+      rateCounterSpan.innerText = remaining;
+      if (remaining === 0) {
+        rateCounterSpan.style.color = '#ff8989';
+      } else {
+        rateCounterSpan.style.color = '#8d94b0';
       }
     }
 
-    document.getElementById('text').addEventListener('keypress', e => {
-      if (e.key === 'Enter') send();
+    // cek apakah bisa kirim
+    function canSendMessage() {
+      updateRateCounter(); // refresh
+      return messageTimestamps.length < RATE_LIMIT;
+    }
+
+    // ----- simpan nickname -----
+    function saveNickname() {
+      let newNick = nicknameInput.value.trim();
+      if (newNick === '') newNick = 'anon';
+      if (newNick.length > 25) newNick = newNick.slice(0, 25);
+      currentNickname = newNick;
+      localStorage.setItem('chat_nickname', currentNickname);
+      nicknameInput.value = currentNickname;
+    }
+    saveNickBtn.addEventListener('click', saveNickname);
+    nicknameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') saveNickname(); });
+
+    // ----- render satu pesan (append atau prepend? untuk historis kita append) -----
+    function renderMessage(msg, isOwn = false) {
+      // buat elemen pesan
+      const row = document.createElement('div');
+      row.className = `message-row ${isOwn ? 'own' : ''}`;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble';
+
+      // meta: nickname + waktu
+      const meta = document.createElement('div');
+      meta.className = 'message-meta';
+
+      const nickSpan = document.createElement('span');
+      nickSpan.className = 'nickname';
+      nickSpan.textContent = msg.nickname || 'anon';
+
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'timestamp';
+
+      // format waktu relatif sederhana (atau jam:menit)
+      const created = msg.created_at ? new Date(msg.created_at) : new Date();
+      timeSpan.textContent = formatRelativeTime(created);
+
+      meta.appendChild(nickSpan);
+      meta.appendChild(timeSpan);
+
+      // text pesan (support emoji)
+      const textDiv = document.createElement('div');
+      textDiv.className = 'message-text';
+      textDiv.textContent = msg.text;  // textContent otomatis handle emoji
+
+      bubble.appendChild(meta);
+      bubble.appendChild(textDiv);
+      row.appendChild(bubble);
+      
+      return row;
+    }
+
+    // format waktu: "5 menit lalu", "sekarang", atau jam:menit jika > 1 jam
+    function formatRelativeTime(date) {
+      const now = new Date();
+      const diffSec = Math.floor((now - date) / 1000);
+      
+      if (diffSec < 10) return 'sekarang';
+      if (diffSec < 60) return `${diffSec} detik lalu`;
+      if (diffSec < 3600) {
+        const min = Math.floor(diffSec / 60);
+        return `${min} menit lalu`;
+      }
+      // fallback ke jam:menit
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ----- load pesan lama (50 pesan terbaru) -----
+    async function loadOldMessages() {
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (error) throw error;
+
+        // balikkan ascending agar yang tertua di atas
+        const messages = data.reverse();
+        
+        // kosongkan panel
+        messageListEl.innerHTML = '';
+        
+        messages.forEach(msg => {
+          const isOwn = msg.nickname === currentNickname;
+          const row = renderMessage(msg, isOwn);
+          messageListEl.appendChild(row);
+        });
+
+        // scroll ke bawah
+        scrollToBottom();
+      } catch (err) {
+        showSystemWarning('Gagal memuat pesan lama: ' + err.message);
+      }
+    }
+
+    // ----- realtime subscription -----
+    function subscribeToMessages() {
+      const subscription = supabase
+        .channel('public:messages')
+        .on('postgres_changes', 
+            { event: 'INSERT', schema: 'public', table: 'messages' }, 
+            (payload) => {
+              // pesan baru datang
+              const newMsg = payload.new;
+              const isOwn = (newMsg.nickname === currentNickname);
+              const row = renderMessage(newMsg, isOwn);
+              messageListEl.appendChild(row);
+              scrollToBottom();
+            })
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR') {
+            showSystemWarning('Koneksi realtime terputus. Mencoba menyambung...');
+          }
+          if (status === 'SUBSCRIBED') {
+            // hilangkan warning jika sebelumnya ada
+            removeSystemWarning();
+          }
+        });
+      
+      return subscription;
+    }
+
+    // ----- helper system warning -----
+    function showSystemWarning(text) {
+      let warn = document.querySelector('.system-warning');
+      if (!warn) {
+        warn = document.createElement('div');
+        warn.className = 'system-warning';
+        warn.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span></span>`;
+        messageListEl.prepend(warn);
+      }
+      warn.querySelector('span').textContent = text;
+    }
+
+    function removeSystemWarning() {
+      const warn = document.querySelector('.system-warning');
+      if (warn) warn.remove();
+    }
+
+    // ----- scroll ke bawah (pesan terbaru) -----
+    function scrollToBottom() {
+      setTimeout(() => {
+        messageListEl.scrollTop = messageListEl.scrollHeight;
+      }, 20);
+    }
+
+    // ----- kirim pesan baru -----
+    async function sendMessage() {
+      const text = messageInput.value.trim();
+      if (!text) return;
+
+      // rate limit check
+      if (!canSendMessage()) {
+        alert(`Anda sudah mengirim ${RATE_LIMIT} pesan dalam 1 menit. Tunggu sebentar.`);
+        return;
+      }
+
+      // validasi nickname minimal
+      const nickname = currentNickname || 'anon';
+
+      try {
+        // insert ke supabase
+        const { error } = await supabase
+          .from('messages')
+          .insert({ nickname, text });
+
+        if (error) throw error;
+
+        // catat timestamp untuk rate limiting (berhasil kirim)
+        messageTimestamps.push(Date.now());
+        updateRateCounter();
+
+        // clear input
+        messageInput.value = '';
+      } catch (err) {
+        showSystemWarning('Gagal mengirim: ' + err.message);
+      }
+    }
+
+    // event kirim (tombol + enter)
+    sendBtn.addEventListener('click', sendMessage);
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
     });
+
+    // auto update rate counter tiap detik
+    setInterval(updateRateCounter, 2000);
+
+    // ----- initial load & subscribe -----
+    (async () => {
+      await loadOldMessages();
+      subscribeToMessages();
+
+      // update kalau nickname berubah untuk warna bubble (tidak perlu render ulang, hanya untuk pesan baru)
+      // kita simpan currentNickname sudah di update via saveNickname
+    })();
+
+    // perbaiki isOwn jika nickname berubah secara lokal (tanpa reload)
+    // Kita tidak perlu render ulang pesan lama, tapi penanda own untuk pesan baru akan berdasarkan currentNickname.
+    // Tidak ada masalah.
+
+    // Optional: handle saat nickname berubah, timpa currentNickname sudah di function saveNickname
   </script>
 </body>
 </html>
