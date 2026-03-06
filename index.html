@@ -3,311 +3,548 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serverless Public Chat (Yjs)</title>
+    <title>Chat Publik Real-time · GUN</title>
     <style>
-        :root {
-            --bg-color: #121212;
-            --chat-bg: #1e1e1e;
-            --text-main: #e0e0e0;
-            --text-muted: #888888;
-            --accent: #bb86fc;
-            --accent-hover: #9c4dcc;
-            --border: #333333;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            padding: 12px;
+        }
+
+        /* Dark mode */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: #1a1b1e;
+            }
+            .chat-container {
+                background: #2c2e33;
+                border-color: #404348;
+            }
+            .message {
+                background: #373a3f;
+                color: #e4e6eb;
+            }
+            .timestamp {
+                color: #9aa3b0;
+            }
+            input, button {
+                background: #404348;
+                color: white;
+                border-color: #555a60;
+            }
+            input::placeholder {
+                color: #8e959f;
+            }
+            button {
+                background: #4a6fa5;
+            }
+            button:hover {
+                background: #5d82b8;
+            }
+            .header {
+                border-bottom-color: #404348;
+            }
         }
 
         .chat-container {
             width: 100%;
-            max-width: 600px;
-            height: 100vh;
-            max-height: 800px;
-            background-color: var(--chat-bg);
+            max-width: 800px;
+            height: 90vh;
+            max-height: 700px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
             display: flex;
             flex-direction: column;
-            border: 1px solid var(--border);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
         }
 
-        @media (min-width: 600px) {
-            .chat-container {
-                height: 90vh;
-                border-radius: 12px;
-                overflow: hidden;
-            }
+        .header {
+            padding: 16px 20px;
+            border-bottom: 2px solid #e0e0e0;
+            background: #f9f9f9;
         }
 
-        .chat-header {
-            padding: 15px 20px;
-            background-color: var(--chat-bg);
-            border-bottom: 1px solid var(--border);
+        .header h2 {
+            color: #1a2b4c;
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+        }
+
+        .user-info {
             display: flex;
-            justify-content: space-between;
+            gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
-        .chat-header h2 { font-size: 1.2rem; font-weight: 600; }
-
-        .status {
-            font-size: 0.8rem;
-            color: #ffb300; /* Default connecting color */
-            display: flex;
-            align-items: center;
-            gap: 5px;
+        .user-info label {
+            font-weight: 600;
+            color: #2c3e50;
         }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background-color: currentColor;
-            border-radius: 50%;
-        }
-        
-        .status.connected { color: #03dac6; }
-        .status.connected .status-dot { animation: pulse 2s infinite; }
-
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(3, 218, 198, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(3, 218, 198, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(3, 218, 198, 0); }
-        }
-
-        .messages {
+        #namaInput {
+            padding: 8px 15px;
+            border-radius: 25px;
+            border: 2px solid #d0d9e8;
+            font-size: 0.95rem;
             flex: 1;
-            padding: 20px;
+            min-width: 150px;
+        }
+
+        #namaInput:focus {
+            outline: none;
+            border-color: #4a6fa5;
+        }
+
+        #status {
+            background: #4a6fa5;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .messages-area {
+            flex: 1;
             overflow-y: auto;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             gap: 10px;
+            background: #f5f7fa;
         }
 
-        .message-item {
-            display: flex;
-            flex-direction: column;
-            animation: fadeIn 0.3s ease;
+        .message {
+            background: white;
+            padding: 12px 18px;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            max-width: 85%;
+            align-self: flex-start;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            animation: muncul 0.2s ease;
+            word-break: break-word;
         }
 
-        @keyframes fadeIn {
+        .message.own-message {
+            background: #d9e6f5;
+            align-self: flex-end;
+            border-bottom-left-radius: 18px;
+            border-bottom-right-radius: 4px;
+        }
+
+        @keyframes muncul {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .message-meta {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-bottom: 2px;
+        .message-header {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
         }
 
-        .message-content {
-            background-color: #2c2c2c;
-            padding: 8px 12px;
-            border-radius: 8px;
-            border-top-left-radius: 0;
-            width: fit-content;
-            max-width: 90%;
-            word-wrap: break-word;
+        .nama-pengirim {
+            font-weight: 700;
+            color: #1e3c5c;
+        }
+
+        .waktu {
+            color: #7f8c8d;
+        }
+
+        .isi-pesan {
+            font-size: 1rem;
             line-height: 1.4;
         }
 
-        .message-content .author {
-            color: var(--accent);
-            font-weight: bold;
-            margin-right: 5px;
+        .typing-indicator {
+            color: #7f8c8d;
+            font-style: italic;
+            font-size: 0.85rem;
+            padding: 5px 10px;
+            min-height: 30px;
         }
 
         .input-area {
-            padding: 15px;
-            background-color: var(--chat-bg);
-            border-top: 1px solid var(--border);
+            padding: 20px;
+            background: white;
+            border-top: 2px solid #e0e0e0;
             display: flex;
-            flex-direction: column;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
-        .input-row { display: flex; gap: 10px; }
+        #pesanInput {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 30px;
+            border: 2px solid #d0d9e8;
+            font-size: 1rem;
+            min-width: 200px;
+        }
 
-        input {
-            background-color: #2c2c2c;
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 10px 15px;
-            border-radius: 6px;
-            font-size: 0.95rem;
+        #pesanInput:focus {
             outline: none;
-            transition: border-color 0.2s;
+            border-color: #4a6fa5;
         }
 
-        input:focus { border-color: var(--accent); }
-        #nameInput { width: 30%; min-width: 100px; }
-        #msgInput { flex: 1; }
-
-        button {
-            background-color: var(--accent);
-            color: #fff;
+        #kirimBtn {
+            padding: 12px 30px;
+            border-radius: 30px;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            font-weight: bold;
+            background: #1e3c5c;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: 0.2s;
         }
 
-        button:hover { background-color: var(--accent-hover); }
+        #kirimBtn:hover {
+            background: #2a4a72;
+            transform: scale(1.02);
+        }
 
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: var(--chat-bg); }
-        ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #777; }
+        .empty-chat {
+            text-align: center;
+            color: #95a5a6;
+            margin-top: 50px;
+            font-style: italic;
+        }
     </style>
+    
+    <!-- GUN.js dengan semua modul yang diperlukan -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/lib/webrtc.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/lib/radix.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/lib/radisk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/lib/store.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/lib/rindexed.js"></script>
 </head>
 <body>
-
     <div class="chat-container">
-        <div class="chat-header">
-            <h2>P2P Global Chat 🌐</h2>
-            <div class="status" id="statusIndicator">
-                <div class="status-dot"></div> <span id="statusText">Connecting...</span>
+        <div class="header">
+            <h2>💬 Chat Publik 2026</h2>
+            <div class="user-info">
+                <label for="namaInput">Nama:</label>
+                <input type="text" id="namaInput" placeholder="Anon" maxlength="25" value="Anon">
+                <span id="status">🟢 Terhubung</span>
             </div>
         </div>
-        
-        <div class="messages" id="messagesDiv">
-            <!-- Pesan akan dirender di sini -->
+
+        <div class="messages-area" id="messagesArea">
+            <div class="empty-chat" id="emptyChat">Belum ada pesan. Kirim pesan pertama!</div>
         </div>
+
+        <div class="typing-indicator" id="typingIndicator"></div>
 
         <div class="input-area">
-            <div class="input-row">
-                <input type="text" id="nameInput" placeholder="Nama..." maxlength="20">
-                <input type="text" id="msgInput" placeholder="Ketik pesan (dukung emoji 🚀)..." autocomplete="off">
-                <button id="sendBtn">Kirim</button>
-            </div>
+            <input type="text" id="pesanInput" placeholder="Ketik pesan..." autocomplete="off">
+            <button id="kirimBtn">Kirim</button>
         </div>
     </div>
 
-    <!-- Menggunakan ES Modules untuk memuat Yjs -->
-    <script type="module">
-        // Import Yjs dan Provider dari CDN esm.sh
-        import * as Y from 'https://esm.sh/yjs@13.6.14';
-        import { WebsocketProvider } from 'https://esm.sh/y-websocket@2.0.4';
-        import { WebrtcProvider } from 'https://esm.sh/y-webrtc@13.0.2';
-
-        // 1. Inisialisasi Dokumen Bersama (Shared Document)
-        const ydoc = new Y.Doc();
-        
-        // Nama ruangan (channel). Ganti string ini untuk membuat room terpisah.
-        const roomName = 'github-pages-chat-room-2026-v2';
-
-        // 2. Hubungkan ke Relay Publik menggunakan WebSocket (Prioritas Utama - Sangat Cepat)
-        const wsProvider = new WebsocketProvider('wss://demos.yjs.dev/ws', roomName, ydoc);
-        
-        // 3. Fallback WebRTC: Jika WebSocket gagal, ini akan menghubungkan browser secara P2P murni
-        const webrtcProvider = new WebrtcProvider(roomName, ydoc);
-
-        // 4. Buat struktur data Array yang akan disinkronisasi
-        const yMessages = ydoc.getArray('chat-messages');
-
-        // Referensi elemen DOM
-        const messagesDiv = document.getElementById('messagesDiv');
-        const nameInput = document.getElementById('nameInput');
-        const msgInput = document.getElementById('msgInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const statusIndicator = document.getElementById('statusIndicator');
-        const statusText = document.getElementById('statusText');
-
-        // Update indikator koneksi
-        wsProvider.on('status', event => {
-            if (event.status === 'connected') {
-                statusIndicator.classList.add('connected');
-                statusText.innerText = 'Connected (Relay + P2P)';
-            } else {
-                statusIndicator.classList.remove('connected');
-                statusText.innerText = 'Connecting...';
-            }
-        });
-
-        // Fungsi Render Pesan
-        function renderMessages() {
-            messagesDiv.innerHTML = '';
+    <script>
+        (function() {
+            // ================== KONFIGURASI ==================
+            const RELAY_PEERS = [
+                'https://gun-manhattan.herokuapp.com/gun',
+                'https://gunjs.herokuapp.com/gun',
+                'https://gun-us.herokuapp.com/gun',
+                'https://gun-eu.herokuapp.com/gun'
+            ];
             
-            // Ambil array dari Yjs, batasi hanya 200 pesan terakhir agar DOM tidak berat
-            const messages = yMessages.toArray().slice(-200);
+            const CHAT_ROOM = 'chat-publik-2026-v2'; // ganti nama biar baru
+            const MAX_PESAN = 100; // maksimal pesan yang ditampilkan
 
-            messages.forEach(msg => {
-                const date = new Date(msg.timestamp);
-                const timeString = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-                
-                const msgEl = document.createElement('div');
-                msgEl.className = 'message-item';
-                
-                // Sanitasi sederhana mencegah XSS
-                const safeName = (msg.name || 'Anon').replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                const safeText = (msg.text || '').replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-                msgEl.innerHTML = `
-                    <div class="message-meta">[${timeString}]</div>
-                    <div class="message-content">
-                        <span class="author">${safeName}:</span>
-                        <span class="text">${safeText}</span>
-                    </div>
-                `;
-                messagesDiv.appendChild(msgEl);
+            // ================== INISIALISASI ==================
+            console.log('Memulai GUN...');
+            
+            const gun = Gun({
+                peers: RELAY_PEERS,
+                localStorage: true,
+                radisk: true,
+                retry: 5
             });
 
-            // Auto-scroll ke bawah
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
+            // Node utama chat - gunakan struktur SET agar lebih stabil
+            const chatRoom = gun.get(CHAT_ROOM);
+            const messagesSet = chatRoom.get('messages'); // kita akan gunakan set()
 
-        // 5. Listen perubahan data. Setiap ada yang kirim pesan, ini akan terpicu otomatis
-        yMessages.observe(() => {
-            renderMessages();
-        });
+            // ================== STATE LOKAL ==================
+            let currentUser = localStorage.getItem('chat_nama') || 'Anon';
+            let messages = new Map(); // Map untuk menyimpan pesan (id -> pesan)
+            let typingTimeout = null;
+            let lastMessageTime = 0;
 
-        // 6. Fungsi Kirim Pesan
-        function sendMessage() {
-            const text = msgInput.value.trim();
-            if (!text) return;
+            // DOM elements
+            const namaInput = document.getElementById('namaInput');
+            const pesanInput = document.getElementById('pesanInput');
+            const kirimBtn = document.getElementById('kirimBtn');
+            const messagesArea = document.getElementById('messagesArea');
+            const typingIndicator = document.getElementById('typingIndicator');
+            const emptyChat = document.getElementById('emptyChat');
+            const statusSpan = document.getElementById('status');
 
-            const name = nameInput.value.trim() || 'Anon';
+            // Set initial nama
+            namaInput.value = currentUser;
+
+            // ================== FUNGSI BANTU ==================
+            function getTimeNow() {
+                const d = new Date();
+                return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            }
+
+            function escapeHTML(text) {
+                if (!text) return '';
+                return text
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            // Render semua pesan (urut berdasarkan waktu)
+            function renderMessages() {
+                if (messages.size === 0) {
+                    emptyChat.style.display = 'block';
+                    messagesArea.innerHTML = '<div class="empty-chat" id="emptyChat">Belum ada pesan. Kirim pesan pertama!</div>';
+                    return;
+                }
+
+                emptyChat.style.display = 'none';
+                
+                // Ubah ke array dan urutkan
+                const sortedMessages = Array.from(messages.values())
+                    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+                let html = '';
+                sortedMessages.forEach(msg => {
+                    const isOwn = msg.nama === currentUser;
+                    const namaTampil = escapeHTML(msg.nama || 'Anon');
+                    const pesanTampil = escapeHTML(msg.pesan || '');
+                    const waktuTampil = msg.waktu || '--:--';
+                    
+                    html += `
+                        <div class="message ${isOwn ? 'own-message' : ''}" data-id="${msg.id}">
+                            <div class="message-header">
+                                <span class="nama-pengirim">${namaTampil}</span>
+                                <span class="waktu">${waktuTampil}</span>
+                            </div>
+                            <div class="isi-pesan">${pesanTampil}</div>
+                        </div>
+                    `;
+                });
+
+                messagesArea.innerHTML = html;
+                
+                // Auto-scroll ke bawah
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            }
+
+            // Tambah pesan ke Map lokal
+            function addMessageToLocal(id, data) {
+                if (!data || !data.pesan) return false;
+                
+                // Validasi data
+                const pesanData = {
+                    id: id,
+                    nama: data.nama || 'Anon',
+                    pesan: data.pesan || '',
+                    waktu: data.waktu || getTimeNow(),
+                    timestamp: data.timestamp || Date.now()
+                };
+
+                // Cek apakah sudah ada
+                if (messages.has(id)) return false;
+
+                // Batasi jumlah pesan
+                if (messages.size >= MAX_PESAN) {
+                    // Hapus pesan terlama
+                    const sorted = Array.from(messages.entries())
+                        .sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
+                    if (sorted.length > 0) {
+                        messages.delete(sorted[0][0]);
+                    }
+                }
+
+                messages.set(id, pesanData);
+                renderMessages();
+                return true;
+            }
+
+            // ================== SUBSCRIBE PESAN (REAL-TIME) ==================
+            console.log('Subscribe ke pesan...');
             
-            // Push ke shared array. Yjs akan otomatis broadcast ke semua user.
-            yMessages.push([{
-                id: crypto.randomUUID(), // ID unik
-                name: name,
-                text: text,
-                timestamp: Date.now()
-            }]);
+            // Method 1: menggunakan .map().on() untuk semua pesan
+            messagesSet.map().on((data, id) => {
+                console.log('Pesan diterima:', id, data);
+                
+                if (data && id) {
+                    addMessageToLocal(id, data);
+                    
+                    // Update status koneksi
+                    statusSpan.innerHTML = '🟢 Terhubung';
+                    statusSpan.style.backgroundColor = '#27ae60';
+                }
+            });
 
-            msgInput.value = '';
-            msgInput.focus();
-        }
+            // Method 2: juga subscribe ke set untuk jaga-jaga
+            messagesSet.once((data) => {
+                console.log('Initial messages:', data);
+            });
 
-        // Event Listeners UI
-        sendBtn.addEventListener('click', sendMessage);
-        msgInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
+            // ================== KIRIM PESAN ==================
+            function kirimPesan() {
+                const textPesan = pesanInput.value.trim();
+                if (!textPesan) return;
 
-        // Simpan/Muat nama dari localStorage
-        const savedName = localStorage.getItem('chatName');
-        if (savedName) nameInput.value = savedName;
-        
-        nameInput.addEventListener('change', (e) => {
-            localStorage.setItem('chatName', e.target.value);
-        });
+                const nama = namaInput.value.trim() || 'Anon';
+                if (nama !== currentUser) {
+                    currentUser = nama;
+                    localStorage.setItem('chat_nama', nama);
+                }
 
-        // Initial render jika sudah ada pesan di memori relay
-        renderMessages();
+                const waktu = getTimeNow();
+                const timestamp = Date.now();
+                
+                // Buat ID unik
+                const uniqueId = `msg_${timestamp}_${Math.random().toString(36).substring(2, 9)}`;
 
+                const messageData = {
+                    nama: nama,
+                    pesan: textPesan,
+                    waktu: waktu,
+                    timestamp: timestamp
+                };
+
+                console.log('Mengirim pesan:', uniqueId, messageData);
+
+                // Simpan ke GUN menggunakan set()
+                messagesSet.get(uniqueId).put(messageData, (ack) => {
+                    if (ack.err) {
+                        console.error('Gagal kirim:', ack.err);
+                        statusSpan.innerHTML = '⚠️ Gagal kirim';
+                        statusSpan.style.backgroundColor = '#e67e22';
+                    } else {
+                        console.log('Pesan terkirim:', ack);
+                        statusSpan.innerHTML = '🟢 Terkirim';
+                        statusSpan.style.backgroundColor = '#4a6fa5';
+                    }
+                });
+
+                // Bersihkan input
+                pesanInput.value = '';
+                
+                // Hentikan typing indicator
+                if (typingTimeout) {
+                    clearTimeout(typingTimeout);
+                    typingIndicator.innerHTML = '';
+                }
+            }
+
+            // ================== TYPING INDICATOR ==================
+            let isTyping = false;
+            const typingNode = chatRoom.get('typing');
+
+            pesanInput.addEventListener('input', () => {
+                if (!isTyping) {
+                    isTyping = true;
+                    
+                    // Beri tahu bahwa user ini sedang mengetik
+                    typingNode.get(currentUser).put({
+                        nama: currentUser,
+                        typing: true,
+                        timestamp: Date.now()
+                    });
+                }
+
+                // Reset timeout
+                if (typingTimeout) clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    isTyping = false;
+                    typingNode.get(currentUser).put({
+                        nama: currentUser,
+                        typing: false,
+                        timestamp: Date.now()
+                    });
+                    typingIndicator.innerHTML = '';
+                }, 1500);
+            });
+
+            // Subscribe typing indicator
+            typingNode.map().on((data, userId) => {
+                if (!data || !data.nama || data.nama === currentUser) return;
+                
+                if (data.typing && (Date.now() - data.timestamp < 3000)) {
+                    typingIndicator.innerHTML = `${escapeHTML(data.nama)} sedang mengetik...`;
+                } else {
+                    // Cek apakah masih ada yang typing
+                    typingIndicator.innerHTML = '';
+                }
+            });
+
+            // ================== EVENT LISTENERS ==================
+            kirimBtn.addEventListener('click', kirimPesan);
+            
+            pesanInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    kirimPesan();
+                }
+            });
+
+            namaInput.addEventListener('change', () => {
+                const newName = namaInput.value.trim() || 'Anon';
+                currentUser = newName;
+                localStorage.setItem('chat_nama', newName);
+                renderMessages(); // Re-render untuk menandai pesan sendiri
+            });
+
+            // ================== CEK KONEKSI ==================
+            setInterval(() => {
+                // Cek koneksi dengan mengirim ping sederhana
+                const pingId = `ping_${Date.now()}`;
+                chatRoom.get('ping').get(pingId).put({
+                    time: Date.now(),
+                    user: currentUser
+                }, (ack) => {
+                    if (ack.err) {
+                        statusSpan.innerHTML = '🔴 Putus';
+                        statusSpan.style.backgroundColor = '#e74c3c';
+                    }
+                });
+            }, 10000);
+
+            // Hapus ping lama
+            setInterval(() => {
+                const cutOff = Date.now() - 30000; // 30 detik yang lalu
+                chatRoom.get('ping').map().once((data, id) => {
+                    if (data && data.time < cutOff) {
+                        chatRoom.get('ping').get(id).put(null); // hapus
+                    }
+                });
+            }, 60000);
+
+            console.log('Aplikasi siap!');
+        })();
     </script>
 </body>
 </html>
