@@ -1,480 +1,336 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Public Chat · GUN</title>
+    <title>Serverless Public Chat</title>
+    <!-- Menggunakan Gun.js dari CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg-color: #121212;
+            --chat-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #888888;
+            --accent: #bb86fc;
+            --accent-hover: #9c4dcc;
+            --border: #333333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-            background: #f5f7fb;
-            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
             display: flex;
-            align-items: center;
             justify-content: center;
-            padding: 12px;
-            transition: background 0.2s;
+            align-items: center;
+            height: 100vh;
         }
-        /* dark mode detection */
-        @media (prefers-color-scheme: dark) {
-            body { background: #1a1c1e; }
-            .chat-container { background: #2c2f33; color: #e4e6eb; border-color: #3a3f44; }
-            .message { background: #3a3f44; border-bottom-color: #4a4f55; }
-            .nickname { color: #bbb; }
-            input, button { background: #1e2124; color: #e4e6eb; border-color: #4a4f55; }
-            button:hover { background: #40464b; }
-            .typing-indicator { color: #9aa3b0; }
-        }
+
         .chat-container {
             width: 100%;
-            max-width: 750px;
-            background: white;
-            border-radius: 28px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 85vh;
+            max-width: 600px;
+            height: 100vh;
             max-height: 800px;
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-        .header {
-            padding: 20px 24px;
-            border-bottom: 1px solid #e9edf4;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
-            background: rgba(255,255,255,0.6);
-            backdrop-filter: blur(4px);
-        }
-        @media (prefers-color-scheme: dark) {
-            .header { background: rgba(44,47,51,0.9); border-bottom-color: #3f444a; }
-        }
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            letter-spacing: -0.3px;
-            background: linear-gradient(145deg, #2b6ed9, #6f4ef0);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-right: auto;
-        }
-        .name-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .name-wrapper label {
-            font-weight: 500;
-            color: #555;
-            font-size: 0.9rem;
-        }
-        #nameInput {
-            padding: 10px 16px;
-            border-radius: 40px;
-            border: 1px solid #d9e0e8;
-            font-size: 0.95rem;
-            width: 140px;
-            transition: all 0.1s;
-            background: white;
-        }
-        #nameInput:focus {
-            outline: none;
-            border-color: #2b6ed9;
-            box-shadow: 0 0 0 3px rgba(43,110,217,0.15);
-        }
-        .messages-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px;
+            background-color: var(--chat-bg);
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            scroll-behavior: smooth;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .message {
-            background: #f4f6fa;
-            padding: 12px 18px;
-            border-radius: 22px;
-            border-bottom-left-radius: 6px;
-            max-width: 85%;
-            word-break: break-word;
-            line-height: 1.5;
-            font-size: 0.98rem;
-            border-bottom: 2px solid #e0e5ed;
-            align-self: flex-start;
-            animation: fadeIn 0.15s ease;
+
+        @media (min-width: 600px) {
+            .chat-container {
+                height: 90vh;
+                border-radius: 12px;
+                overflow: hidden;
+            }
         }
-        @keyframes fadeIn { from { opacity: 0.3; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-        .message .meta {
+
+        .chat-header {
+            padding: 15px 20px;
+            background-color: var(--chat-bg);
+            border-bottom: 1px solid var(--border);
             display: flex;
-            align-items: baseline;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .status {
+            font-size: 0.8rem;
+            color: #03dac6;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #03dac6;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(3, 218, 198, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(3, 218, 198, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(3, 218, 198, 0); }
+        }
+
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
             gap: 10px;
-            margin-bottom: 5px;
-            flex-wrap: wrap;
         }
-        .message .timestamp {
-            font-size: 0.7rem;
-            font-weight: 500;
-            color: #8f9aa7;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
+
+        .message-item {
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.3s ease;
         }
-        .message .nickname {
-            font-weight: 700;
-            color: #1e2b45;
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .message .text {
-            font-size: 1rem;
+
+        .message-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 2px;
         }
-        .footer {
-            padding: 20px 24px;
-            background: #fafcff;
-            border-top: 1px solid #e9edf4;
+
+        .message-content {
+            background-color: #2c2c2c;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border-top-left-radius: 0;
+            width: fit-content;
+            max-width: 90%;
+            word-wrap: break-word;
+            line-height: 1.4;
         }
-        @media (prefers-color-scheme: dark) {
-            .footer { background: #26292d; border-top-color: #3f444a; }
+
+        .message-content .author {
+            color: var(--accent);
+            font-weight: bold;
+            margin-right: 5px;
         }
+
+        .input-area {
+            padding: 15px;
+            background-color: var(--chat-bg);
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
         .input-row {
             display: flex;
-            gap: 12px;
-            align-items: center;
+            gap: 10px;
         }
-        #messageInput {
-            flex: 1;
-            padding: 14px 20px;
-            border-radius: 50px;
-            border: 1px solid #d9e0e8;
-            font-size: 1rem;
-            background: white;
-            transition: 0.1s;
-        }
-        #messageInput:focus {
+
+        input {
+            background-color: #2c2c2c;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.95rem;
             outline: none;
-            border-color: #2b6ed9;
-            box-shadow: 0 0 0 3px rgba(43,110,217,0.1);
+            transition: border-color 0.2s;
         }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        #nameInput {
+            width: 30%;
+            min-width: 100px;
+        }
+
+        #msgInput {
+            flex: 1;
+        }
+
         button {
-            background: #1e2f4f;
-            color: white;
+            background-color: var(--accent);
+            color: #fff;
             border: none;
-            padding: 14px 28px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 1rem;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: bold;
             cursor: pointer;
-            transition: 0.15s;
-            box-shadow: 0 6px 14px rgba(27, 45, 85, 0.15);
-            white-space: nowrap;
-            border: 1px solid rgba(255,255,255,0.05);
+            transition: background-color 0.2s;
         }
-        button:hover { background: #2b3f64; transform: scale(1.02); }
-        .typing-indicator {
-            font-size: 0.85rem;
-            color: #64748b;
-            margin-top: 8px;
-            min-height: 24px;
-            font-style: italic;
-            padding-left: 8px;
+
+        button:hover {
+            background-color: var(--accent-hover);
         }
-        .status-badge {
-            font-size: 0.7rem;
-            background: #d1d9e6;
-            color: #1a2634;
-            padding: 4px 10px;
-            border-radius: 40px;
-            font-weight: 500;
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 6px;
         }
-        @media (prefers-color-scheme: dark) {
-            .status-badge { background: #404a56; color: #dfe6f0; }
+        ::-webkit-scrollbar-track {
+            background: var(--chat-bg);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #777;
         }
     </style>
-    <!-- GUN.js dari CDN publik + lib waktu (opsional) -->
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script> <!-- optional untuk auth, tapi tidak dipakai -->
-    <script src="https://cdn.jsdelivr.net/npm/gun/lib/webrtc.js"></script> <!-- webrtc加持, bikin cepat -->
-    <script src="https://cdn.jsdelivr.net/npm/gun/lib/radix.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gun/lib/radisk.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gun/lib/store.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/gun/lib/rindexed.js"></script>
 </head>
 <body>
-    <div class="chat-container" id="chatContainer">
-        <div class="header">
-            <h1>⚡ pub/chat</h1>
-            <div class="name-wrapper">
-                <label for="nameInput">nama</label>
-                <input type="text" id="nameInput" placeholder="Anon" maxlength="22" value="Anon">
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>P2P Global Chat 🌐</h2>
+            <div class="status">
+                <div class="status-dot"></div> P2P Connected
             </div>
-            <span class="status-badge" id="statusDot">⏺️  public</span>
+        </div>
+        
+        <div class="messages" id="messagesDiv">
+            <!-- Pesan akan muncul di sini -->
         </div>
 
-        <div class="messages-container" id="messagesContainer">
-            <!-- Pesan akan di-render di sini -->
-            <div style="text-align:center; color:#888; padding:20px;">menyambung ke relay ...</div>
-        </div>
-
-        <div class="footer">
+        <div class="input-area">
             <div class="input-row">
-                <input type="text" id="messageInput" placeholder="Ketik pesan..." autocomplete="off">
-                <button id="sendButton">Kirim</button>
+                <input type="text" id="nameInput" placeholder="Nama..." maxlength="20">
+                <input type="text" id="msgInput" placeholder="Ketik pesan (dukung emoji 🚀)..." autocomplete="off">
+                <button id="sendBtn">Kirim</button>
             </div>
-            <div class="typing-indicator" id="typingIndicator"></div>
         </div>
     </div>
 
     <script>
-        (function(){
-            // --- 1. Inisialisasi GUN dengan relay publik ---
-            // Gun.js secara default mencoba peers peer-to-peer via WebRTC jika ada.
-            // Kita tambahkan relay publik "gun-manhattan.herokuapp.com/gun" sebagai super peer.
-            const gun = Gun({
-                peers: [
-                    'https://gun-manhattan.herokuapp.com/gun',   // relay stabil (US)
-                    'https://gunjs.herokuapp.com/gun',           // relay cadangan (EU)
-                    // 'https://relay.ly/gun',                   // opsional
-                ],
-                localStorage: true,   // simpan pesan terakhir di IndexedDB (persistensi lokal)
-                radisk: true,         // simpan ke disk (IndexedDB)
-                retry: 10,            // coba ulang koneksi
+        // 1. Inisialisasi Gun.js dengan Relay Publik
+        // Menggunakan relay komunitas yang stabil untuk membantu sinkronisasi antar browser
+        const gun = Gun({
+            peers: [
+                'https://gun-manhattan.herokuapp.com/gun',
+                'https://peer.wallie.io/gun'
+            ]
+        });
+
+        // 2. Buat referensi ke "node" database khusus untuk aplikasi kita
+        // Ganti string ini jika ingin membuat "room" atau channel yang berbeda
+        const chatNode = gun.get('github-pages-serverless-chat-2026-v1');
+
+        // Elemen DOM
+        const messagesDiv = document.getElementById('messagesDiv');
+        const nameInput = document.getElementById('nameInput');
+        const msgInput = document.getElementById('msgInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // State lokal untuk menyimpan pesan (membantu sorting dan pruning)
+        let messages = {};
+
+        // 3. Fungsi untuk merender pesan ke layar
+        function renderMessages() {
+            messagesDiv.innerHTML = '';
+            
+            // Konversi object ke array, urutkan berdasarkan waktu, batasi 200 pesan terakhir
+            const sortedMessages = Object.values(messages)
+                .sort((a, b) => a.timestamp - b.timestamp)
+                .slice(-200);
+
+            sortedMessages.forEach(msg => {
+                const date = new Date(msg.timestamp);
+                const timeString = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                
+                const msgEl = document.createElement('div');
+                msgEl.className = 'message-item';
+                
+                // Sanitasi sederhana untuk mencegah XSS dasar
+                const safeName = msg.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                const safeText = msg.text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+                msgEl.innerHTML = `
+                    <div class="message-meta">[${timeString}]</div>
+                    <div class="message-content">
+                        <span class="author">${safeName}:</span>
+                        <span class="text">${safeText}</span>
+                    </div>
+                `;
+                messagesDiv.appendChild(msgEl);
             });
 
-            // Kita pakai node 'chatroom-v2' agar terpisah dari demo lain
-            const chatNode = gun.get('public-chat-2026');   // namespace global
+            // Auto-scroll ke bawah
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
 
-            // --- 2. Variabel lokal ---
-            let username = localStorage.getItem('chat_username') || 'Anon';
-            document.getElementById('nameInput').value = username;
-
-            const messagesContainer = document.getElementById('messagesContainer');
-            const messageInput = document.getElementById('messageInput');
-            const sendButton = document.getElementById('sendButton');
-            const typingIndicator = document.getElementById('typingIndicator');
-            const statusDot = document.getElementById('statusDot');
-
-            // Untuk menghindari spam typing
-            let typingTimeout = null;
-            let isTyping = false;
-            const TYPING_THROTTLE = 800; // ms
-
-            // Helper: waktu sekarang (HH:MM)
-            function getCurrentTime() {
-                const d = new Date();
-                return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-            }
-
-            // --- 3. Memuat pesan yang sudah ada (last 50) secara REALTIME ---
-            // GUN bekerja dengan .map().on() : setiap kali ada data baru di node, langsung trigger
-            // Agar tidak overload, kita batasi jumlah pesan yang ditampilkan di memori (200).
-            const MAX_MESSAGES = 200;
-            let messagesRendered = 0;
-
-            // Kita urutkan berdasarkan properti 'timestamp' (ms). GUN tidak mengembalikan urut otomatis, jadi kita maintain array.
-            let messagesArray = [];   // untuk sorting
-
-            // Fungsi render ulang (berdasarkan timestamp)
-            function renderAllMessages() {
-                // urutkan dari lama ke baru (ascending)
-                const sorted = [...messagesArray].sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
-                let html = '';
-                sorted.forEach(msg => {
-                    html += `<div class="message" data-id="${msg.id}">
-                        <div class="meta">
-                            <span class="timestamp">${msg.time || '??:??'}</span>
-                            <span class="nickname">${escapeHtml(msg.name || 'Anon')}</span>
-                        </div>
-                        <div class="text">${escapeHtml(msg.text || '')}</div>
-                    </div>`;
-                });
-                if (html === '') {
-                    html = '<div style="text-align:center; color:#888; padding:20px;">Belum ada pesan. Kirim yang pertama!</div>';
+        // 4. Listen data secara Real-Time dari Gun.js
+        chatNode.map().on((data, id) => {
+            if (data && data.text) {
+                // Gun.js bisa mengirim data yang sama berkali-kali, 
+                // kita cek apakah pesan sudah ada di state lokal kita
+                if (!messages[id]) {
+                    messages[id] = {
+                        name: data.name,
+                        text: data.text,
+                        timestamp: data.timestamp
+                    };
+                    renderMessages();
                 }
-                messagesContainer.innerHTML = html;
-                // scroll ke bawah
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
+        });
 
-            // helper escape html sederhana
-            function escapeHtml(unsafe) {
-                return unsafe.replace(/[&<>"']/g, function(m) {
-                    if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;';
-                    if(m === '"') return '&quot;'; if(m === "'") return '&#039;';
-                    return m;
-                });
-            }
+        // 5. Fungsi untuk Mengirim Pesan
+        function sendMessage() {
+            const text = msgInput.value.trim();
+            if (!text) return;
 
-            // Subscribe ke semua pesan: setiap perubahan di node 'messages' (kita simpan sebagai map)
-            // GUN struktur: chatNode.get('messages').map().on( ... )
-            const messagesMap = chatNode.get('messages');  // node untuk semua pesan
-
-            // .map() akan memanggil callback untuk setiap key, termasuk yg sudah ada dan yg baru.
-            messagesMap.map().on((data, key) => {
-                if (!data || !data.text) return; // ignore jika kosong
-
-                // Cek apakah pesan ini sudah ada di messagesArray (berdasarkan id = key)
-                const existingIndex = messagesArray.findIndex(m => m.id === key);
-                const newMsg = {
-                    id: key,
-                    name: data.name || 'Anon',
-                    text: data.text,
-                    timestamp: data.timestamp || Date.now(),
-                    time: data.time || getCurrentTime()
-                };
-
-                if (existingIndex !== -1) {
-                    // update jika perlu (jarang)
-                    messagesArray[existingIndex] = newMsg;
-                } else {
-                    // tambah baru, batasi jumlah
-                    messagesArray.push(newMsg);
-                    if (messagesArray.length > MAX_MESSAGES) {
-                        // hapus yang paling lama (berdasarkan timestamp terkecil)
-                        messagesArray.sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
-                        messagesArray.shift(); // hapus satu
-                    }
-                }
-
-                // Render ulang (bisa dioptimasi dengan insert satu elemen, tapi simple saja)
-                renderAllMessages();
+            const name = nameInput.value.trim() || 'Anon';
+            
+            // Simpan ke Gun.js
+            // Gun.js akan secara otomatis menyebarkan (broadcast) ini ke peers lain
+            chatNode.set({
+                name: name,
+                text: text,
+                timestamp: Gun.state() // Menggunakan sistem waktu desentralisasi Gun
             });
 
-            // --- 4. Kirim pesan baru ---
-            function sendMessage() {
-                const msgText = messageInput.value.trim();
-                if (!msgText) return;
+            msgInput.value = '';
+            msgInput.focus();
+        }
 
-                const currentName = document.getElementById('nameInput').value.trim() || 'Anon';
-                // simpan nama ke localStorage
-                localStorage.setItem('chat_username', currentName);
-                username = currentName;
+        // Event Listeners
+        sendBtn.addEventListener('click', sendMessage);
+        msgInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
 
-                const timestamp = Date.now();
-                const timeStr = getCurrentTime();
-                const uniqueId = `${timestamp}-${Math.random().toString(36).substring(2, 8)}`;
+        // Load saved name from localStorage if exists
+        const savedName = localStorage.getItem('chatName');
+        if (savedName) nameInput.value = savedName;
+        
+        nameInput.addEventListener('change', (e) => {
+            localStorage.setItem('chatName', e.target.value);
+        });
 
-                // Simpan ke GUN: messagesMap.get(uniqueId).put({...})
-                messagesMap.get(uniqueId).put({
-                    name: currentName,
-                    text: msgText,
-                    timestamp: timestamp,
-                    time: timeStr
-                });
-
-                // feedback kosongkan input
-                messageInput.value = '';
-                // langsung scroll (renderAllMessages sudah di-trigger oleh .map().on)
-                // stop typing indicator
-                stopTypingIndicator();
-            }
-
-            // --- 5. Typing indicator via GUN (presence/awareness) ---
-            // Kita pakai node terpisah 'typing' dengan username sebagai key
-            const typingNode = chatNode.get('typing');
-            let myTypingKey = null;
-
-            function updateTypingStatus(typing) {
-                if (!username) username = 'Anon';
-                const key = username + '-' + new Date().getTime().toString().slice(0,-3); // unique per session
-                if (!myTypingKey) {
-                    myTypingKey = key;
-                }
-                // simpan status dengan timestamp expiration (manual)
-                typingNode.get(myTypingKey).put({
-                    name: username,
-                    typing: typing,
-                    lastUpdate: Date.now()
-                });
-
-                // cleanup setelah 2 detik jika tidak ada update (simulasi offline typing)
-                if (typingTimeout) clearTimeout(typingTimeout);
-                if (typing) {
-                    typingTimeout = setTimeout(() => {
-                        // set typing false jika sudah tidak ngetik dalam 2 detik
-                        typingNode.get(myTypingKey).put({
-                            name: username,
-                            typing: false,
-                            lastUpdate: Date.now()
-                        });
-                    }, 2500);
-                }
-            }
-
-            // Monitor siapa yang sedang typing (dari semua user)
-            typingNode.map().on((data, key) => {
-                if (!data || !data.name) return;
-                // jangan tampilkan diri sendiri
-                if (key === myTypingKey) return;
-
-                // filter jika typing true dan lastUpdate < 3 detik yang lalu
-                if (data.typing && data.lastUpdate && (Date.now() - data.lastUpdate < 3000)) {
-                    typingIndicator.innerText = `${data.name} sedang mengetik ...`;
-                } else {
-                    // jika tidak ada typing, kosongkan (tapi harus cek masih ada yg typing lain)
-                    // logic sederhana: cek ulang semua data
-                    let anyTyping = false;
-                    // sayangnya kita tidak bisa iterasi mudah di sini tanpa menyimpan state.
-                    // opsi: pakai array penampung sementara.
-                }
-            });
-
-            // Untuk reset typing indicator, lebih baik pakai interval sederhana yang bersihkan stale
-            setInterval(() => {
-                typingIndicator.innerText = ''; // sederhana, nanti diisi ulang jika ada data typing baru
-                // tapi kita ingin muncul lagi jika ada yg typing. dengan .map().on akan langsung muncul lagi jika data masih ada.
-            }, 3500);
-
-            // Event input untuk typing
-            messageInput.addEventListener('input', () => {
-                if (!isTyping) {
-                    isTyping = true;
-                    updateTypingStatus(true);
-                }
-                // reset timeout
-                if (typingTimeout) clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => {
-                    isTyping = false;
-                    updateTypingStatus(false);
-                }, TYPING_THROTTLE);
-            });
-
-            function stopTypingIndicator() {
-                if (typingTimeout) clearTimeout(typingTimeout);
-                isTyping = false;
-                updateTypingStatus(false);
-            }
-
-            // --- 6. Event listeners tombol & enter ---
-            sendButton.addEventListener('click', sendMessage);
-            messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
-
-            // saat nama diubah, simpan ke localStorage
-            document.getElementById('nameInput').addEventListener('change', function(e) {
-                const val = e.target.value.trim() || 'Anon';
-                localStorage.setItem('chat_username', val);
-                username = val;
-            });
-
-            // --- 7. Indikator koneksi (sederhana) via event GUN ---
-            // GUN tidak punya event status built-in yg bagus, tapi kita bisa pakai heartbeat
-            statusDot.innerText = '⏺️  relay: gun-manhattan';
-
-            // Optional: cek koneksi dengan gun.on('hi') dll
-            // Tidak wajib, tetapi kita tambahkan optimis.
-
-            // --- 8. Bersihkan pesan lama setiap 1 menit (opsional) ---
-            // Ini dilakukan di frontend, hanya membuang dari array, tidak dari gun.
-            // Agar tidak membebani, kita tidak perlu hapus dari gun, biarlah relay menyimpannya.
-            // Tapi kita batasi tampilan saja (MAX_MESSAGES sudah di atas)
-
-            // Inisialisasi: render awal mungkin kosong, lalu akan terisi dari gun.
-        })();
     </script>
 </body>
 </html>
